@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quest Log — A Gamified Daily Tracker</title>
+<meta name="description" content="Turn your to-do list into a quest log. Earn XP, level up, and keep your streak alive.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>Quest Log</h1>
+      <div class="sub">Daily Chronicle · Vol. I</div>
+    </div>
+    <div class="level-badge">
+      <span class="level-num" id="levelNum">1</span>
+      <span class="level-label">Level</span>
+    </div>
+  </header>
+
+  <section class="statbar">
+    <div class="stat-ring">
+      <svg viewBox="0 0 120 120" class="ring-svg">
+        <circle cx="60" cy="60" r="52" class="ring-bg"></circle>
+        <circle cx="60" cy="60" r="52" class="ring-fg" id="ringFg"></circle>
+      </svg>
+      <div class="ring-center">
+        <span id="xpCurrent">0</span>
+        <span class="ring-sub">/ <span id="xpNeeded">100</span> XP</span>
+      </div>
+    </div>
+    <div class="stat-side">
+      <div class="stat-block">
+        <span class="stat-value" id="streakCount">0</span>
+        <span class="stat-key">Day Streak</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-value" id="totalXp">0</span>
+        <span class="stat-key">Lifetime XP</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-value" id="questsToday">0</span>
+        <span class="stat-key">Quests Today</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="add-quest">
+    <input type="text" id="questInput" placeholder="Name your next quest..." maxlength="80">
+    <div class="tier-select">
+      <button class="tier-btn active" data-tier="small" data-xp="5">Small · 5xp</button>
+      <button class="tier-btn" data-tier="medium" data-xp="15">Medium · 15xp</button>
+      <button class="tier-btn" data-tier="big" data-xp="30">Big · 30xp</button>
+      <button class="tier-btn" data-tier="boss" data-xp="60">Boss · 60xp</button>
+    </div>
+    <button class="add-btn" id="addBtn">+ Add to Log</button>
+  </section>
+
+  <section class="quest-list" id="questList">
+    <!-- quests render here -->
+  </section>
+
+  <p class="empty-state" id="emptyState">Your log is empty. Add a quest above to begin.</p>
+
+  <footer class="footer-note">
+    <span>Quests reset each day. Completed quests clear at midnight; unfinished ones carry over.</span>
+    <button class="reset-btn" id="resetBtn">Reset all data</button>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
