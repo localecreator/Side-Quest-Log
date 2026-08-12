@@ -1,8 +1,17 @@
 // Quest Log — gamified daily tracker
-// All data is stored in the browser's localStorage. Nothing leaves your device.
+// Manually added quests live in the browser's localStorage.
+// Quests added by your automations are pulled in (read-only) from Supabase each time you load the page.
 
 const STORAGE_KEY = 'questlog_state_v1';
 const RING_CIRCUMFERENCE = 327; // 2 * PI * 52
+
+// Public read-only connection. This key can only SELECT rows — it cannot
+// insert, update, or delete anything, so it's safe to expose in client-side code.
+const SUPABASE_URL = 'https://heuqdyumhpjjsateitrd.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_YAtZHIQ7xedKaH2Gxq25EA_wYO6ArhF';
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+  : null;
 
 const defaultState = {
   totalXp: 0,
@@ -16,6 +25,44 @@ const defaultState = {
 
 let state = loadState();
 let selectedTier = { tier: 'small', xp: 5 };
+
+// --- Live sync mode ---
+// By default, this page shows a generic demo — it never touches Supabase or your
+// real automated tasks. Live mode (pulling your actual daily tasks) only turns on
+// for you, on your own device, and stays off for anyone else who visits this link.
+const LIVE_SYNC_KEY = 'questlog_live_sync';
+
+function isLiveSyncEnabled() {
+  return localStorage.getItem(LIVE_SYNC_KEY) === 'true';
+}
+
+function checkForSyncActivationLink() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('sync') === 'on') {
+    localStorage.setItem(LIVE_SYNC_KEY, 'true');
+    // Strip the param from the URL so it isn't visible or shareable by accident
+    params.delete('sync');
+    const cleanUrl = window.location.pathname +
+      (params.toString() ? `?${params}` : '') + window.location.hash;
+    window.history.replaceState({}, '', cleanUrl);
+  }
+}
+
+const DEMO_QUESTS = [
+  { id: 'demo-1', name: 'Morning outreach batch', tier: 'medium', xp: 15, completed: true, source: 'automation' },
+  { id: 'demo-2', name: 'Post to socials', tier: 'small', xp: 5, completed: false, source: 'automation' },
+  { id: 'demo-3', name: 'Deep work block', tier: 'boss', xp: 60, completed: false, source: 'manual' }
+];
+
+function seedDemoQuestsIfEmpty() {
+  const today = todayStr();
+  const hasAnyToday = state.quests.length > 0;
+  if (!hasAnyToday) {
+    state.quests = DEMO_QUESTS.map(q => ({ ...q }));
+    state.lastActiveDate = today;
+    saveState();
+  }
+}
 
 function loadState() {
   try {
@@ -117,6 +164,13 @@ function render() {
   document.getElementById('questsToday').textContent =
     state.quests.filter(q => q.completed).length;
 
+  const subEl = document.querySelector('.masthead .sub');
+  if (subEl) {
+    subEl.textContent = isLiveSyncEnabled()
+      ? 'Daily Chronicle · Live'
+      : 'Daily Chronicle · Demo';
+  }
+
   const pct = Math.min(1, state.currentXp / state.xpToNextLevel);
   const offset = RING_CIRCUMFERENCE * (1 - pct);
   document.getElementById('ringFg').style.strokeDashoffset = offset;
@@ -150,6 +204,12 @@ function renderQuestItem(q) {
   const name = document.createElement('span');
   name.className = 'quest-name';
   name.textContent = q.name;
+  if (q.source === 'automation') {
+    const tag = document.createElement('span');
+    tag.className = 'quest-auto-tag';
+    tag.textContent = 'auto';
+    name.appendChild(tag);
+  }
 
   const xp = document.createElement('span');
   xp.className = 'quest-xp';
@@ -232,6 +292,50 @@ document.getElementById('questInput').addEventListener('keydown', e => {
 });
 document.getElementById('resetBtn').addEventListener('click', resetAll);
 
+// Pull in today's quests added by your automations (e.g. a Cowork or Make.com
+// scenario that writes rows into the quest_log_quests table each morning).
+// This only reads — nothing here can write back to Supabase.
+async function fetchAutomationQuests() {
+  if (!supabaseClient) return;
+
+  const today = todayStr();
+  const { data, error } = await supabaseClient
+    .from('quest_log_quests')
+    .select('id, name, tier, xp, quest_date')
+    .eq('quest_date', today)
+    .eq('source', 'automation');
+
+  if (error) {
+    console.error('Quest Log: failed to fetch automation quests', error);
+    return;
+  }
+
+  data.forEach(row => {
+    const alreadyExists = state.quests.some(q => q.id === row.id);
+    if (!alreadyExists) {
+      state.quests.push({
+        id: row.id,
+        name: row.name,
+        tier: row.tier,
+        xp: row.xp,
+        completed: false,
+        source: 'automation'
+      });
+    }
+  });
+
+  saveState();
+  render();
+}
+
 // --- Init ---
+checkForSyncActivationLink();
 handleDailyRollover();
-render();
+
+if (isLiveSyncEnabled()) {
+  render();
+  fetchAutomationQuests();
+} else {
+  seedDemoQuestsIfEmpty();
+  render();
+}

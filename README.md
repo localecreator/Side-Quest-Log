@@ -22,11 +22,38 @@ Quest Log reframes tasks as "quests" with tiered point values (small, medium, bi
 
 ## Tech
 
-Just HTML, CSS, and vanilla JavaScript. Data persists in `localStorage`, so your progress stays on your device between sessions.
+HTML, CSS, and vanilla JavaScript. Quests you add manually live in your browser's `localStorage`. Quests added by an external automation (like a daily Claude-generated task list) sync in read-only from a Supabase table each time you load the page.
 
 - `index.html` — structure
 - `style.css` — styling (parchment/moss color system, Cormorant Garamond + Work Sans + JetBrains Mono)
-- `script.js` — all the logic: XP math, leveling, streaks, and daily rollover
+- `script.js` — all the logic: XP math, leveling, streaks, daily rollover, and the Supabase read
+
+### Auto-populating quests from an automation
+
+The site connects to Supabase using a **publishable key that can only read data** — it has no permission to insert, update, or delete, so it's safe to have visible in the client-side code.
+
+To feed it daily tasks automatically, set up a scheduled automation (e.g. a Cowork task or Make.com scenario) that inserts rows into the `quest_log_quests` table using your Supabase **service role key** (kept private, server-side only) with:
+
+```sql
+insert into quest_log_quests (name, tier, xp, source, quest_date)
+values ('Send outreach batch', 'medium', 15, 'automation', current_date);
+```
+
+Any row with `source = 'automation'` and today's date will show up in the app automatically, tagged with a small "auto" label so you can tell it apart from what you added by hand.
+
+**Note:** completing or deleting a quest only updates your local browser — it doesn't write back to Supabase. Multi-device sync of *completed* state isn't built yet; this only syncs new quests in, one direction.
+
+## Demo mode vs. live mode
+
+The public link above always shows a **generic demo** with sample quests — it never connects to Supabase or reveals any real task data, even to you, by default. Anyone who visits it sees the demo.
+
+**Live mode** (pulling in your real automated tasks) only turns on for you, and only on the device where you activate it:
+
+1. Visit the live link with `?sync=on` added once, e.g. `https://YOUR-USERNAME.github.io/quest-log/?sync=on`, on your own device
+2. This sets a flag stored locally in that browser and immediately cleans the URL, so the link never looks different if you screenshot or share it
+3. From then on, that browser fetches your real automated tasks; every other visitor still only sees the demo
+
+To turn live mode off on a device, open the browser's dev tools console and run `localStorage.removeItem('questlog_live_sync')`.
 
 ## Running it locally
 
